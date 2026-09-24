@@ -15,6 +15,7 @@ import logging
 import os
 import threading
 import wave
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict
 
@@ -49,20 +50,6 @@ VOICES: Dict[str, str] = {
 }
 
 MAX_TEXT_LENGTH = int(os.environ.get("PIPER_MAX_TEXT_LENGTH", "2000"))
-
-# --------------------------------------------------------------------------
-# App
-# --------------------------------------------------------------------------
-
-app = FastAPI(title="Piper TTS Server", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 _loaded_voices: Dict[str, PiperVoice] = {}
 _load_lock = threading.Lock()
@@ -128,11 +115,11 @@ def get_voice(voice: str) -> PiperVoice:
 
 
 # --------------------------------------------------------------------------
-# Startup
+# App / startup
 # --------------------------------------------------------------------------
 
-@app.on_event("startup")
-def on_startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     try:
         ensure_voice_downloaded(DEFAULT_VOICE)
         logger.info("Default voice '%s' is ready on disk.", DEFAULT_VOICE)
@@ -140,6 +127,18 @@ def on_startup() -> None:
         # Don't crash the whole server if the download fails at boot (e.g.
         # transient network hiccup) - /tts will retry the download lazily.
         logger.exception("Failed to pre-download default voice '%s'", DEFAULT_VOICE)
+    yield
+
+
+app = FastAPI(title="Piper TTS Server", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --------------------------------------------------------------------------
@@ -177,8 +176,8 @@ def tts(req: TTSRequest):
 
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav_file:
-        # These must be set before synthesize() writes any frames, or the
-        # wave module raises "# channels not specified" on the first chunk.
+        # Must be set before synthesize() writes any frames, or the wave
+        # module raises "# channels not specified" on the first chunk.
         wav_file.setnchannels(1)
         wav_file.setsampwidth(2)  # 16-bit PCM
         wav_file.setframerate(piper_voice.config.sample_rate)
