@@ -1,5 +1,8 @@
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
+# Pinned deliberately: 1.4.0 dropped the bundled espeak-ng binary/data
+# (requires extra system setup) and has a known crash on inputs that
+# produce empty phonemes. Do not bump without testing both issues.
 piper-tts==1.3.0
 requests==2.32.3
 pydantic==2.10.3
