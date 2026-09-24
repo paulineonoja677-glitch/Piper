@@ -181,7 +181,10 @@ def tts(req: TTSRequest):
         wav_file.setnchannels(1)
         wav_file.setsampwidth(2)  # 16-bit PCM
         wav_file.setframerate(piper_voice.config.sample_rate)
-        piper_voice.synthesize(text, wav_file)
+        # piper-tts 1.3.0+ made synthesize() return a generator of AudioChunk
+        # objects instead of writing to a file directly. synthesize_wav() is
+        # the current API for writing straight to an open wave.Wave_write.
+        piper_voice.synthesize_wav(text, wav_file)
 
     audio_bytes = buffer.getvalue()
     return Response(
