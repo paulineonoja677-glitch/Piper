@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: piper-tts-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PIPER_DEFAULT_VOICE
+        value: en_US-lessac-medium
+      - key: PIPER_MAX_TEXT_LENGTH
+        value: "2000"
+    # Render's free tier has no persistent disk, so the voice model is
+    # re-downloaded from Hugging Face on each cold start (see app.py).
+    # It's ~60MB, which keeps cold starts fast on a free instance.
