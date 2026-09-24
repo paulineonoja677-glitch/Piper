@@ -177,6 +177,11 @@ def tts(req: TTSRequest):
 
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav_file:
+        # These must be set before synthesize() writes any frames, or the
+        # wave module raises "# channels not specified" on the first chunk.
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)  # 16-bit PCM
+        wav_file.setframerate(piper_voice.config.sample_rate)
         piper_voice.synthesize(text, wav_file)
 
     audio_bytes = buffer.getvalue()
